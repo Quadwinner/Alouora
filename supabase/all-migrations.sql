@@ -1,3 +1,4 @@
+
 -- =============================================================================
 -- BEAUTIFY/ALOUORA - ALL DATABASE MIGRATIONS
 -- =============================================================================
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   email TEXT UNIQUE,
   phone TEXT UNIQUE,
   full_name TEXT,
-  avatar_url TEXT,
+  avatar_url TEXT,    
   brand_preference TEXT CHECK (brand_preference IN ('beautify', 'alouora')) DEFAULT 'beautify',
   date_of_birth DATE,
   gender TEXT CHECK (gender IN ('male', 'female', 'other', 'prefer_not_to_say')),

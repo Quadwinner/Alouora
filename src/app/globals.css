@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* ==========================================================================
    BEAUTIFY/ALOUORA DUAL BRAND COLOR SYSTEM
    ========================================================================== */
@@ -133,4 +144,114 @@ body {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ==========================================================================
+   AUTH PAGES STYLES (BEAUTIFY Brand)
+   ========================================================================== */
+
+/* Right Panel Background */
+.auth-right-panel-bg {
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 60%, #F3E6FC 100%);
+}
+
+/* Wave Container for Left Panel */
+.wave-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 55%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.wave-background {
+  width: 100%;
+  height: 100%;
+  fill: url(#gradient_fill);
+}
+
+/* Product Circle Styling */
+.product-circle {
+  background: linear-gradient(180deg, #9471BC 0%, #835CAC 100%);
+  box-shadow:
+    0 20px 50px rgba(131, 92, 172, 0.4),
+    inset 0 0 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Decorative Faint Circles */
+.deco-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(2px);
+}
+
+/* Logo Typography */
+.logo-title {
+  font-size: 42px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+.logo-subtitle {
+  font-size: 15px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+
+/* Feature Text */
+.feature-text {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* Form Elements */
+.input-field {
+  transition: all 0.2s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #E8A1B4;
+  box-shadow: 0 0 0 4px rgba(232, 161, 180, 0.1);
+}
+
+/* Primary Button (Pink Gradient) */
+.primary-btn {
+  background: linear-gradient(90deg, #D47FA6 0%, #EA8BAD 50%, #F597BA 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 15px rgba(212, 127, 166, 0.3);
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(212, 127, 166, 0.4);
+}
+
+.primary-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Google Button */
+.google-btn {
+  transition: background-color 0.2s ease;
+}
+
+.google-btn:hover:not(:disabled) {
+  background-color: #F9FAFB;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .wave-container {
+    display: none;
+  }
+  
+  .logo-title {
+    font-size: 32px;
+  }
 }

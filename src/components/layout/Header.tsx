@@ -53,13 +53,24 @@ export default function Header() {
 
             {/* Navigation Links */}
             <nav className="hidden lg:flex items-center justify-center gap-8 py-3 bg-white border-t border-gray-100/50">
-                {['Makeup', 'Skin', 'Hair', 'Appliances', 'Bath & Body', 'Natural', 'Mom & Baby', 'Health & Wellness', 'Men', 'Fragrance'].map((item) => (
+                {[
+                    { name: 'Makeup', href: '/makeup' },
+                    { name: 'Skin', href: '/category/skin' },
+                    { name: 'Hair', href: '/category/hair' },
+                    { name: 'Appliances', href: '/category/appliances' },
+                    { name: 'Bath & Body', href: '/category/bath-body' },
+                    { name: 'Natural', href: '/category/natural' },
+                    { name: 'Mom & Baby', href: '/category/mom-baby' },
+                    { name: 'Health & Wellness', href: '/category/health-wellness' },
+                    { name: 'Men', href: '/category/men' },
+                    { name: 'Fragrance', href: '/category/fragrance' },
+                ].map((item) => (
                     <Link
-                        key={item}
-                        href={`/category/${item.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-')}`}
+                        key={item.name}
+                        href={item.href}
                         className="text-sm font-medium text-gray-600 hover:text-[#b8860b] transition-colors uppercase tracking-wide"
                     >
-                        {item}
+                        {item.name}
                     </Link>
                 ))}
             </nav>

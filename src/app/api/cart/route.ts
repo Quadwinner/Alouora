@@ -54,7 +54,7 @@ export async function GET() {
         let totalSavings = 0;
 
         const formattedItems = cartItems?.map((item) => {
-            const product = item.product as {
+            const product = (Array.isArray(item.product) ? item.product[0] : item.product) as {
                 id: string;
                 name: string;
                 slug: string;

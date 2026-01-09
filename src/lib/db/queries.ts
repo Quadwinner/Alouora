@@ -12,7 +12,7 @@ import { calculatePagination } from '../api/response'
  * Paginate Query
  * Applies pagination to a Supabase query
  */
-export function paginateQuery<T>(
+export function paginateQuery(
   query: any,
   page: number = 1,
   limit: number = 20
@@ -157,7 +157,7 @@ export async function getSingleRecord<T>(
     throw error
   }
 
-  return data
+  return data as T
 }
 
 /**

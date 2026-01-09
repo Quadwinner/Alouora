@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
                 {
                     success: false,
                     error: 'Invalid request data',
-                    details: validationResult.error.errors.map(e => e.message)
+                    details: validationResult.error.issues.map(e => e.message)
                 },
                 { status: 400 }
             );

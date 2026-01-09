@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'
-import { emailSchema, nameSchema, phoneNumberSchema, pincodeSchema } from './common'
+import { nameSchema, phoneNumberSchema, pincodeSchema } from './common'
 
 /**
  * Update Profile Schema

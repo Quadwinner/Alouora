@@ -35,7 +35,7 @@ export async function PUT(
                 {
                     success: false,
                     error: 'Invalid request data',
-                    details: validationResult.error.errors.map(e => e.message)
+                    details: validationResult.error.issues.map(e => e.message)
                 },
                 { status: 400 }
             );
@@ -76,7 +76,7 @@ export async function PUT(
             );
         }
 
-        const product = cartItem.product as {
+        const product = (Array.isArray(cartItem.product) ? cartItem.product[0] : cartItem.product) as {
             id: string;
             price: number;
             original_price: number | null;
@@ -136,7 +136,7 @@ export async function PUT(
 
 // DELETE /api/cart/items/[id] - Remove item from cart
 export async function DELETE(
-    request: NextRequest,
+    _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {

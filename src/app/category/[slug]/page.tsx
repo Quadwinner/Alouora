@@ -2,32 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect, useCallback } from "react";
 import Footer from "@/components/layout/Footer";
 import type { ProductListItem } from "@/types/product";
-
-// Lipstick formats data (Shop By Format)
-const lipstickFormats = [
-  { id: 'lipstick', name: 'Lipstick', img: '/images/makeup/lipsticks/formats/lipstick.png' },
-  { id: 'liquid-lipstick', name: 'Liquid Lipstick', img: '/images/makeup/lipsticks/formats/liquid-lipstick.png' },
-  { id: 'lip-tints', name: 'Lip Tints', img: '/images/makeup/lipsticks/formats/lip-tints.png' },
-  { id: 'lip-gloss-oil', name: 'Lip Gloss/Oil', img: '/images/makeup/lipsticks/formats/lip-gloss-oil.png' },
-  { id: 'lip-crayons', name: 'Lip Crayons', img: '/images/makeup/lipsticks/formats/lip-crayons.png' },
-  { id: 'lip-liners', name: 'Lip Liners', img: '/images/makeup/lipsticks/formats/lip-liners.png' },
-];
-
-// Lipstick shades data (Shop By Shade)
-const lipstickShades = [
-  { id: 'pink', name: 'Pink', color: '#F9A8D4' },
-  { id: 'red', name: 'Red', color: '#DC2626' },
-  { id: 'orange', name: 'Orange', color: '#F97316' },
-  { id: 'brown', name: 'Brown', color: '#78350F' },
-  { id: 'berry', name: 'Berry', color: '#9333EA' },
-  { id: 'nude', name: 'Nude', color: '#D4B896' },
-  { id: 'mauve', name: 'Mauve', color: '#C4B5FD' },
-  { id: 'peach', name: 'Peach', color: '#FDBA74' },
-];
+import { getCategoryBySlug, type CategoryConfig } from "@/constants/categoryData";
 
 // Filter options
 const filterOptions = [
@@ -44,7 +23,7 @@ const filterOptions = [
   { id: 'preference', name: 'Preference', expanded: false },
 ];
 
-// Product type for UI display (maps from API response)
+// Product type for UI display
 interface DisplayProduct {
   id: string;
   name: string;
@@ -75,12 +54,9 @@ function transformProduct(product: ProductListItem): DisplayProduct {
       ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
       : 0);
 
-  // Check if "NEW" is in badges array
   const badges = product.badges || [];
   const isNew = badges.some(badge => badge.toUpperCase() === 'NEW');
   const hasGift = badges.some(badge => badge.toUpperCase().includes('GIFT'));
-
-  // Filter out "NEW" from displayed badges since we show it separately
   const displayBadges = badges.filter(badge => badge.toUpperCase() !== 'NEW');
 
   return {
@@ -91,7 +67,7 @@ function transformProduct(product: ProductListItem): DisplayProduct {
     discount: discountPercentage > 0 ? `${discountPercentage}% Off` : '',
     rating: Math.round(product.rating_average || 0),
     reviews: product.rating_count || 0,
-    img: product.thumbnail || product.images?.[0] || '/images/makeup/lipsticks/products/product-1.png',
+    img: product.thumbnail || product.images?.[0] || '/images/product-placeholder.png',
     badges: displayBadges,
     isNew: isNew,
     gift: hasGift ? 'Enjoy Complimentary Gift' : '',
@@ -124,10 +100,10 @@ function ProductCard({ product }: { product: DisplayProduct }) {
 
   const handleAddToCart = async () => {
     if (isAddingToCart) return;
-    
+
     setIsAddingToCart(true);
     setCartMessage(null);
-    
+
     try {
       const response = await fetch('/api/cart/items', {
         method: 'POST',
@@ -144,7 +120,6 @@ function ProductCard({ product }: { product: DisplayProduct }) {
 
       if (response.ok && data.success) {
         setCartMessage({ type: 'success', text: 'Added to cart!' });
-        // Clear message after 2 seconds
         setTimeout(() => setCartMessage(null), 2000);
       } else {
         setCartMessage({ type: 'error', text: data.error || 'Failed to add' });
@@ -161,18 +136,16 @@ function ProductCard({ product }: { product: DisplayProduct }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden group hover:shadow-lg transition-shadow relative">
-      {/* Cart Message Toast */}
       {cartMessage && (
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 px-4 py-2 rounded-lg shadow-lg text-sm font-medium ${
-          cartMessage.type === 'success' 
-            ? 'bg-green-500 text-white' 
+          cartMessage.type === 'success'
+            ? 'bg-green-500 text-white'
             : 'bg-red-500 text-white'
         }`}>
           {cartMessage.text}
         </div>
       )}
-      
-      {/* Product Image - Clickable */}
+
       <Link href={`/products/${product.id}`} className="block relative bg-gray-50">
         <div className="relative h-[200px] w-full">
           <Image
@@ -182,13 +155,11 @@ function ProductCard({ product }: { product: DisplayProduct }) {
             className="object-contain p-4 group-hover:scale-105 transition-transform duration-200"
           />
         </div>
-        {/* NEW Badge */}
         {product.isNew && (
           <div className="absolute top-2 right-2 bg-[#22c55e] text-white text-[10px] font-semibold px-2 py-1 rounded">
             NEW
           </div>
         )}
-        {/* Feature Badges */}
         <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
           {product.badges.map((badge, idx) => (
             <span
@@ -201,40 +172,34 @@ function ProductCard({ product }: { product: DisplayProduct }) {
         </div>
       </Link>
 
-      {/* Product Info */}
       <div className="p-3 text-center">
         <Link href={`/products/${product.id}`} className="block hover:text-pink-600 transition-colors">
           <h3 className="text-sm text-gray-800 mb-2 line-clamp-2 min-h-[40px]">{product.name}</h3>
         </Link>
 
-        {/* Price */}
         <div className="flex items-center justify-center gap-2 mb-1.5 flex-wrap">
           <span className="text-sm text-gray-400 line-through">₹{product.originalPrice.toFixed(2)}</span>
           <span className="font-semibold text-gray-900">₹{product.salePrice.toFixed(2)}</span>
           <span className="text-xs text-pink-600 font-medium">{product.discount}</span>
         </div>
 
-        {/* Gift Text */}
         {product.gift && (
           <p className="text-[11px] text-gray-500 mb-2">{product.gift}</p>
         )}
 
-        {/* Rating */}
         <div className="flex items-center justify-center gap-1.5 mb-3">
           <StarRating rating={product.rating} />
           <span className="text-[11px] text-gray-400">({product.reviews.toLocaleString()})</span>
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="flex flex-col">
-        {/* Add to Cart Button - Green */}
         <button
           onClick={handleAddToCart}
           disabled={isAddingToCart}
           className={`w-full py-2.5 text-sm font-medium text-white transition flex items-center justify-center gap-2 ${
-            isAddingToCart 
-              ? 'bg-gray-400 cursor-not-allowed' 
+            isAddingToCart
+              ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-[#22c55e] hover:bg-[#16a34a]'
           }`}
         >
@@ -257,7 +222,6 @@ function ProductCard({ product }: { product: DisplayProduct }) {
             </>
           )}
         </button>
-        {/* Wishlist & Preview Row */}
         <div className="flex border-t border-gray-100">
           <button className="flex-none w-12 py-2.5 flex items-center justify-center border-r border-gray-100 hover:bg-gray-50 transition">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
@@ -273,8 +237,7 @@ function ProductCard({ product }: { product: DisplayProduct }) {
   );
 }
 
-
-// Product Card Skeleton for loading state
+// Product Card Skeleton
 function ProductCardSkeleton() {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse">
@@ -293,10 +256,11 @@ function ProductCardSkeleton() {
   );
 }
 
-// Lipstick Listing Content Component
-function LipstickListingContent() {
+// Category Listing Content Component
+function CategoryListingContent({ categoryData }: { categoryData: CategoryConfig }) {
   const searchParams = useSearchParams();
-  const category = searchParams.get('category');
+  const format = searchParams.get('format');
+  const shade = searchParams.get('shade');
   const [currentPage, setCurrentPage] = useState(1);
   const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -312,7 +276,9 @@ function LipstickListingContent() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '15',
-        ...(category && { category }),
+        category: categoryData.apiCategory,
+        ...(format && { format }),
+        ...(shade && { shade }),
       });
 
       const response = await fetch(`/api/products?${params}`);
@@ -335,47 +301,25 @@ function LipstickListingContent() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [categoryData.apiCategory, format, shade]);
 
-  // Fetch on mount and page change
   useEffect(() => {
     fetchProducts(currentPage);
   }, [currentPage, fetchProducts]);
 
-  // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Check if it's lipstick category
-  const isLipstick = category === 'lipstick';
-
-  if (!isLipstick) {
-    // Generic products page for other categories
-    return (
-      <main className="min-h-screen bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-16 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Products</h1>
-          <p className="text-gray-600">Category: {category || 'All'}</p>
-          <p className="text-gray-500 mt-4">Products page coming soon...</p>
-          <Link href="/makeup" className="inline-block mt-6 text-pink-600 hover:text-pink-700">
-            ← Back to Makeup
-          </Link>
-        </div>
-        <Footer />
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-[#fdf2f8]">
-      {/* Hero Banner - Lipstick Paradise */}
+      {/* Hero Banner */}
       <section className="relative h-[300px] md:h-[358px] overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="/images/makeup/lipsticks/banner.png"
-            alt="Lipstick Paradise"
+            src={categoryData.bannerImg}
+            alt={categoryData.title}
             fill
             className="object-cover"
             priority
@@ -384,13 +328,13 @@ function LipstickListingContent() {
         </div>
         <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
           <h1 className="text-[80px] md:text-[150px] font-semibold text-white/25 capitalize leading-none">
-            Lipsticks
+            {categoryData.title}
           </h1>
           <h2 className="text-2xl md:text-4xl font-semibold text-white capitalize mt-4">
-            The Lipstick paradise
+            {categoryData.subtitle}
           </h2>
           <p className="text-lg md:text-2xl font-semibold text-gray-400 capitalize mt-2">
-            Discover a limitless range of makeup
+            {categoryData.description}
           </p>
         </div>
       </section>
@@ -401,9 +345,7 @@ function LipstickListingContent() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/" className="hover:text-pink-600">Home</Link>
             <span>/</span>
-            <Link href="/makeup" className="hover:text-pink-600">Makeup</Link>
-            <span>/</span>
-            <span className="text-gray-900">Lipstick</span>
+            <span className="text-gray-900">{categoryData.name}</span>
           </div>
         </div>
       </section>
@@ -416,47 +358,47 @@ function LipstickListingContent() {
             <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Format</h2>
           </div>
           <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-            {lipstickFormats.map((format) => (
+            {categoryData.formats.map((formatItem) => (
               <Link
-                key={format.id}
-                href={`/products?category=lipstick&format=${format.id}`}
+                key={formatItem.id}
+                href={`/category/${categoryData.slug}?format=${formatItem.id}`}
                 className="flex flex-col items-center min-w-[140px] group"
               >
                 <div className="relative w-[140px] h-[140px] md:w-[207px] md:h-[207px] rounded-2xl overflow-hidden mb-3 bg-gray-100 group-hover:shadow-lg transition-all duration-300">
                   <Image
-                    src={format.img}
-                    alt={format.name}
+                    src={formatItem.img}
+                    alt={formatItem.name}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
-                <span className="text-sm md:text-base font-medium text-gray-700 text-center">{format.name}</span>
+                <span className="text-sm md:text-base font-medium text-gray-700 text-center">{formatItem.name}</span>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Shop By Shade Section */}
+      {/* Shop By Shade/Type Section */}
       <section className="bg-[#fdf2f8] py-8">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
-            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Shade</h2>
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Type</h2>
           </div>
           <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex flex-wrap justify-center gap-8 md:gap-16">
-              {lipstickShades.map((shade) => (
+              {categoryData.shades.map((shadeItem) => (
                 <Link
-                  key={shade.id}
-                  href={`/products?category=lipstick&shade=${shade.id}`}
+                  key={shadeItem.id}
+                  href={`/category/${categoryData.slug}?shade=${shadeItem.id}`}
                   className="flex flex-col items-center group"
                 >
                   <div
                     className="w-16 h-16 md:w-20 md:h-20 rounded-full mb-3 group-hover:scale-110 transition-transform duration-300 shadow-md"
-                    style={{ backgroundColor: shade.color }}
+                    style={{ backgroundColor: shadeItem.color }}
                   />
-                  <span className="text-sm font-medium text-gray-600">{shade.name}</span>
+                  <span className="text-sm font-medium text-gray-600">{shadeItem.name}</span>
                 </Link>
               ))}
             </div>
@@ -471,13 +413,10 @@ function LipstickListingContent() {
             {/* Filters Sidebar */}
             <aside className="hidden lg:block w-64 flex-shrink-0">
               <div className="bg-white rounded-lg border border-gray-200 sticky top-4">
-                {/* Filter Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200">
                   <h3 className="font-semibold text-gray-900">Filters</h3>
                   <button className="text-sm text-pink-600 hover:text-pink-700">Clear All</button>
                 </div>
-
-                {/* Filter Options */}
                 <div className="divide-y divide-gray-100">
                   {filterOptions.map((filter) => (
                     <button
@@ -496,7 +435,6 @@ function LipstickListingContent() {
 
             {/* Products Grid */}
             <div className="flex-1">
-              {/* Products Header */}
               <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">All Products</h2>
                 {pagination && (
@@ -506,7 +444,6 @@ function LipstickListingContent() {
                 )}
               </div>
 
-              {/* Error State */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center mb-6">
                   <p className="text-red-600 mb-4">{error}</p>
@@ -519,10 +456,8 @@ function LipstickListingContent() {
                 </div>
               )}
 
-              {/* Products Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {loading ? (
-                  // Loading skeletons
                   Array.from({ length: 15 }).map((_, idx) => (
                     <ProductCardSkeleton key={idx} />
                   ))
@@ -531,14 +466,13 @@ function LipstickListingContent() {
                     <ProductCard key={product.id} product={product} />
                   ))
                 ) : !error && (
-                  // Empty state
                   <div className="col-span-full text-center py-12">
                     <p className="text-gray-500 text-lg mb-4">No products found</p>
                     <Link
-                      href="/products?category=lipstick"
+                      href={`/category/${categoryData.slug}`}
                       className="text-pink-600 hover:text-pink-700"
                     >
-                      Browse all lipsticks
+                      Browse all {categoryData.name.toLowerCase()} products
                     </Link>
                   </div>
                 )}
@@ -560,7 +494,6 @@ function LipstickListingContent() {
                         <path d="M6 1L1 6.5L6 12" />
                       </svg>
                     </button>
-                    {/* Dynamic page numbers */}
                     {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
                       let pageNum;
                       if (pagination.totalPages <= 5) {
@@ -603,21 +536,41 @@ function LipstickListingContent() {
         </div>
       </section>
 
-      {/* Footer */}
       <Footer />
     </main>
   );
 }
 
-// Main Products Page with Suspense
-export default function ProductsPage() {
+// Main Category Page
+export default function CategoryPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const categoryData = getCategoryBySlug(slug);
+
+  if (!categoryData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Category Not Found</h1>
+          <p className="text-gray-600 mb-6">The category you're looking for doesn't exist.</p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition"
+          >
+            Go to Homepage
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
       </div>
     }>
-      <LipstickListingContent />
+      <CategoryListingContent categoryData={categoryData} />
     </Suspense>
   );
 }

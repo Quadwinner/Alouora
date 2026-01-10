@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Mock product data for display
 const mockProduct = {
@@ -62,9 +62,10 @@ const mockProduct = {
 };
 
 export async function GET(
-  request: Request,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: _id } = await params;
   // Return mock data for now to visualize the frontend design
   return NextResponse.json({
     success: true,

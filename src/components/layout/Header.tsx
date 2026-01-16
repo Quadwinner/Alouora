@@ -91,9 +91,9 @@ export default function Header() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-4 md:gap-6">
-                    <button className="flex items-center gap-2 group">
+                    <Link href="/wishlist" className="flex items-center gap-2 group">
                         <HeartIcon className="w-6 h-6 text-gray-700 group-hover:text-[#b8860b] transition-colors" />
-                    </button>
+                    </Link>
                     <Link href="/cart" className="flex items-center gap-2 group relative">
                         <ShoppingBagIcon className="w-6 h-6 text-gray-700 group-hover:text-[#b8860b] transition-colors" />
                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#b8860b] text-white text-[10px] flex items-center justify-center rounded-full">2</span>

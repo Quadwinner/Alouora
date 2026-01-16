@@ -4,7 +4,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 
 interface WishlistItem {
@@ -190,7 +189,6 @@ export default function WishlistPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
         <div className="flex items-center justify-center py-32">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
@@ -204,7 +202,6 @@ export default function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
 
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100">

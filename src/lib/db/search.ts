@@ -1,14 +1,45 @@
 /**
  * Product Search Utilities
  *
- * Enhanced search functions for products
+ * Enhanced search functions for products with category/brand matching
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * Normalize search term - handles singular/plural variations
+ */
+function normalizeSearchTerm(term: string): string[] {
+  const normalized = term.toLowerCase().trim();
+  const variations: string[] = [normalized];
+
+  // Add singular form if plural (ends with 's')
+  if (normalized.endsWith('s') && normalized.length > 3) {
+    variations.push(normalized.slice(0, -1));
+  }
+
+  // Add plural form if singular
+  if (!normalized.endsWith('s') && normalized.length > 2) {
+    variations.push(normalized + 's');
+  }
+
+  // Handle 'ies' -> 'y' conversion
+  if (normalized.endsWith('ies')) {
+    variations.push(normalized.slice(0, -3) + 'y');
+  }
+
+  // Handle 'y' -> 'ies' conversion
+  if (normalized.endsWith('y') && !normalized.endsWith('ey')) {
+    variations.push(normalized.slice(0, -1) + 'ies');
+  }
+
+  return [...new Set(variations)];
+}
+
+/**
  * Enhanced Product Search
  * Searches across product name, description, SKU, brand name, and category name
+ * with support for singular/plural variations
  */
 export async function searchProducts(
   supabase: SupabaseClient,
@@ -16,49 +47,62 @@ export async function searchProducts(
   baseQuery: any
 ): Promise<any> {
   const sanitizedTerm = searchTerm.trim();
+  const searchVariations = normalizeSearchTerm(sanitizedTerm);
 
-  // Find matching brands and categories
-  const [brandsResult, categoriesResult] = await Promise.all([
+  // Find matching brands and categories (including variations)
+  const brandPromises = searchVariations.map(term =>
     supabase
       .from('brands')
       .select('id, name')
-      .ilike('name', `%${sanitizedTerm}%`)
-      .eq('is_active', true),
+      .ilike('name', `%${term}%`)
+      .eq('is_active', true)
+  );
+
+  const categoryPromises = searchVariations.map(term =>
     supabase
       .from('categories')
       .select('id, name')
-      .ilike('name', `%${sanitizedTerm}%`)
-      .eq('is_active', true),
-  ]);
-
-  const matchingBrandIds = brandsResult.data?.map(b => b.id) || [];
-  const matchingCategoryIds = categoriesResult.data?.map(c => c.id) || [];
-
-  // Build search query
-  // Search in product fields: name, description, SKU
-  let searchQuery = baseQuery.or(
-    `name.ilike.%${sanitizedTerm}%,description.ilike.%${sanitizedTerm}%,sku.ilike.%${sanitizedTerm}%`
+      .ilike('name', `%${term}%`)
+      .eq('is_active', true)
   );
 
-  // If we have matching brands or categories, we need to include those products too
-  // Since Supabase PostgREST doesn't easily support complex OR with IN,
-  // we'll fetch those separately and merge, or use a different approach
-  
-  // For now, we'll enhance the search by also checking if brand_id or category_id
-  // matches the found IDs. We'll do this by creating a union-like approach
-  // or by using a more sophisticated query
+  const [brandsResults, categoriesResults] = await Promise.all([
+    Promise.all(brandPromises),
+    Promise.all(categoryPromises)
+  ]);
 
-  // Alternative approach: Use a textSearch that includes brand/category matching
-  // We'll create separate queries and combine results, or use a database function
+  // Collect unique IDs from all variations
+  const matchingBrandIds = [...new Set(
+    brandsResults.flatMap(r => r.data?.map(b => b.id) || [])
+  )];
+  const matchingCategoryIds = [...new Set(
+    categoriesResults.flatMap(r => r.data?.map(c => c.id) || [])
+  )];
+
+  // Build OR conditions for all variations
+  const orConditions: string[] = [];
   
-  // For immediate implementation, we'll use the product field search
-  // and the brand/category matching will be handled by the join in the select
-  // The frontend can also filter by brand/category separately
+  searchVariations.forEach(term => {
+    orConditions.push(`name.ilike.%${term}%`);
+    orConditions.push(`description.ilike.%${term}%`);
+    orConditions.push(`sku.ilike.%${term}%`);
+  });
+
+  // Add category and brand ID matches
+  if (matchingCategoryIds.length > 0) {
+    orConditions.push(`category_id.in.(${matchingCategoryIds.join(',')})`);
+  }
+  if (matchingBrandIds.length > 0) {
+    orConditions.push(`brand_id.in.(${matchingBrandIds.join(',')})`);
+  }
+
+  const searchQuery = baseQuery.or(orConditions.join(','));
 
   return {
     query: searchQuery,
     matchingBrandIds,
     matchingCategoryIds,
+    searchVariations,
   };
 }
 
@@ -72,62 +116,92 @@ export async function applyProductSearch(
   searchTerm: string
 ): Promise<any> {
   const sanitizedTerm = searchTerm.trim();
+  const searchVariations = normalizeSearchTerm(sanitizedTerm);
 
   // Find matching brands and categories to include their products in search
-  const [brandsResult, categoriesResult] = await Promise.all([
+  const brandPromises = searchVariations.map(term =>
     supabase
       .from('brands')
       .select('id')
-      .ilike('name', `%${sanitizedTerm}%`)
-      .eq('is_active', true),
+      .ilike('name', `%${term}%`)
+      .eq('is_active', true)
+  );
+
+  const categoryPromises = searchVariations.map(term =>
     supabase
       .from('categories')
       .select('id')
-      .ilike('name', `%${sanitizedTerm}%`)
-      .eq('is_active', true),
-  ]);
-
-  const matchingBrandIds = brandsResult.data?.map(b => b.id) || [];
-  const matchingCategoryIds = categoriesResult.data?.map(c => c.id) || [];
-
-  // Enhanced search: Search in product name, description, and SKU
-  // This uses ilike which works well with Supabase PostgREST
-  // The full-text search index will still help with performance
-  let searchQuery = baseQuery.or(
-    `name.ilike.%${sanitizedTerm}%,description.ilike.%${sanitizedTerm}%,sku.ilike.%${sanitizedTerm}%`
+      .ilike('name', `%${term}%`)
+      .eq('is_active', true)
   );
 
-  // Note: To include products from matching brands/categories that don't match
-  // the text search, we would need to do a UNION query or use a database function.
-  // For now, the text search on product fields covers most use cases.
-  // Brand and category name matching will be visible through the joined data
-  // in the response, allowing the frontend to highlight matches.
+  const [brandsResults, categoriesResults] = await Promise.all([
+    Promise.all(brandPromises),
+    Promise.all(categoryPromises)
+  ]);
+
+  const matchingBrandIds = [...new Set(
+    brandsResults.flatMap(r => r.data?.map(b => b.id) || [])
+  )];
+  const matchingCategoryIds = [...new Set(
+    categoriesResults.flatMap(r => r.data?.map(c => c.id) || [])
+  )];
+
+  // Build comprehensive OR conditions for all variations
+  const orConditions: string[] = [];
+  
+  searchVariations.forEach(term => {
+    orConditions.push(`name.ilike.%${term}%`);
+    orConditions.push(`description.ilike.%${term}%`);
+    orConditions.push(`sku.ilike.%${term}%`);
+  });
+
+  // Include products from matching categories and brands
+  if (matchingCategoryIds.length > 0) {
+    orConditions.push(`category_id.in.(${matchingCategoryIds.join(',')})`);
+  }
+  if (matchingBrandIds.length > 0) {
+    orConditions.push(`brand_id.in.(${matchingBrandIds.join(',')})`);
+  }
+
+  const searchQuery = baseQuery.or(orConditions.join(','));
 
   return {
     query: searchQuery,
     brandIds: matchingBrandIds,
     categoryIds: matchingCategoryIds,
+    searchVariations,
   };
 }
 
 /**
- * Use database function for full-text search (if available)
- * This provides better ranking and performance
+ * Use database function for enhanced search (if available)
+ * This provides better ranking, category/brand matching, and performance
  */
 export async function searchProductsWithFunction(
   supabase: SupabaseClient,
   searchTerm: string,
-  _limit: number = 20,
-  _offset: number = 0
+  limit: number = 50,
+  offset: number = 0
 ): Promise<any> {
   try {
-    // Call the database function for full-text search
+    // Try enhanced search function first
+    const { data: enhancedData, error: enhancedError } = await supabase.rpc('search_products_enhanced', {
+      search_term: searchTerm,
+      result_limit: limit,
+      result_offset: offset
+    });
+
+    if (!enhancedError && enhancedData) {
+      return enhancedData;
+    }
+
+    // Fallback to basic FTS function
     const { data, error } = await supabase.rpc('search_products_fts', {
       search_term: searchTerm,
     });
 
     if (error) {
-      // Fallback to regular search if function doesn't exist
       console.warn('Full-text search function not available, using fallback:', error);
       return null;
     }
@@ -138,3 +212,5 @@ export async function searchProductsWithFunction(
     return null;
   }
 }
+
+// Note: normalizeSearchTerm is already defined above (line 12)

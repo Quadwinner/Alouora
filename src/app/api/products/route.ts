@@ -298,14 +298,101 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.gt('stock_quantity', 0);
     }
 
-    // Apply search filter (Enhanced full-text search)
+    // Apply search filter (Enhanced full-text search with category/brand matching)
     if (searchTerm) {
       const sanitizedTerm = searchTerm.trim();
       
-      // Search in product name, description, and SKU
-      baseQuery = baseQuery.or(
-        `name.ilike.%${sanitizedTerm}%,description.ilike.%${sanitizedTerm}%,sku.ilike.%${sanitizedTerm}%`
-      );
+      // Try enhanced search function first (searches products, categories, brands)
+      let useFallback = true;
+      try {
+        const { data: searchResults, error: searchError } = await supabase
+          .rpc('search_products_enhanced', {
+            search_term: sanitizedTerm,
+            result_limit: 500,
+            result_offset: 0
+          });
+
+        if (!searchError && searchResults && searchResults.length > 0) {
+          // Get product IDs from enhanced search
+          const searchProductIds = searchResults.map((r: any) => r.id).filter(Boolean);
+          if (searchProductIds.length > 0) {
+            baseQuery = baseQuery.in('id', searchProductIds);
+            useFallback = false; // Successfully used RPC results
+          }
+        } else if (searchError) {
+          console.warn('Enhanced search RPC error:', searchError);
+        }
+      } catch (rpcError) {
+        console.warn('Enhanced search RPC exception:', rpcError);
+        useFallback = true;
+      }
+      
+      // Use fallback if RPC didn't work or returned no results
+      if (useFallback) {
+          // Fallback: Enhanced ILIKE search across products, categories, and brands
+          // Handle singular/plural variations for better category matching
+          const normalizedTerm = sanitizedTerm.toLowerCase();
+          const searchVariations: string[] = [normalizedTerm];
+          
+          // Add singular form if plural (ends with 's')
+          if (normalizedTerm.endsWith('s') && normalizedTerm.length > 3) {
+            searchVariations.push(normalizedTerm.slice(0, -1));
+          }
+          
+          // Add plural form if singular
+          if (!normalizedTerm.endsWith('s') && normalizedTerm.length > 2) {
+            searchVariations.push(normalizedTerm + 's');
+          }
+          
+          // Find matching categories and brands (check all variations)
+          const categoryQueries = searchVariations.map(term => 
+            supabase
+              .from('categories')
+              .select('id')
+              .or(`name.ilike.%${term}%,slug.ilike.%${term}%`)
+              .eq('is_active', true)
+          );
+          
+          const brandQueries = searchVariations.map(term =>
+            supabase
+              .from('brands')
+              .select('id')
+              .or(`name.ilike.%${term}%,slug.ilike.%${term}%`)
+              .eq('is_active', true)
+          );
+          
+          const [categoryResults, brandResults] = await Promise.all([
+            Promise.all(categoryQueries),
+            Promise.all(brandQueries)
+          ]);
+
+          // Collect unique IDs from all variations
+          const matchingCategoryIds = [...new Set(
+            categoryResults.flatMap(r => r.data?.map((c: any) => c.id) || [])
+          )];
+          const matchingBrandIds = [...new Set(
+            brandResults.flatMap(r => r.data?.map((b: any) => b.id) || [])
+          )];
+
+          // Build comprehensive OR condition for all variations
+          const orConditions: string[] = [];
+          
+          searchVariations.forEach(term => {
+            orConditions.push(`name.ilike.%${term}%`);
+            orConditions.push(`description.ilike.%${term}%`);
+            orConditions.push(`sku.ilike.%${term}%`);
+          });
+
+          // Add category and brand filters if matches found
+          if (matchingCategoryIds.length > 0) {
+            orConditions.push(`category_id.in.(${matchingCategoryIds.join(',')})`);
+          }
+          if (matchingBrandIds.length > 0) {
+            orConditions.push(`brand_id.in.(${matchingBrandIds.join(',')})`);
+          }
+
+          baseQuery = baseQuery.or(orConditions.join(','));
+        }
     }
 
     // Calculate available filters (before pagination)

@@ -58,15 +58,23 @@ export default function WishlistPage() {
       const response = await fetch('/api/wishlist');
       const data = await response.json();
 
+      console.log('Wishlist API Response:', { status: response.status, data });
+
       if (response.ok && data.success) {
-        setWishlistItems(data.data.items || []);
+        const items = data.data?.items || [];
+        console.log('Wishlist items fetched:', items.length);
+        setWishlistItems(items);
       } else {
+        console.error('Wishlist API Error:', data);
         if (response.status === 401) {
           router.push('/signin');
+        } else {
+          alert(data.error || 'Failed to load wishlist. Please try again.');
         }
       }
     } catch (error) {
       console.error('Error fetching wishlist:', error);
+      alert('Failed to load wishlist. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

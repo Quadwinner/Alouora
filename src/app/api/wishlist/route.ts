@@ -29,43 +29,10 @@ export async function GET(_request: NextRequest) {
       return unauthorizedResponse('Please sign in to view your wishlist');
     }
 
-    // Fetch wishlist items with product details
+    // First, fetch wishlist items
     const { data: wishlistItems, error: wishlistError } = await supabase
       .from('wishlist')
-      .select(`
-        id,
-        product_id,
-        variant_id,
-        added_at,
-        product:products(
-          id,
-          name,
-          slug,
-          price,
-          original_price,
-          discount_percentage,
-          thumbnail,
-          images,
-          rating_average,
-          rating_count,
-          stock_quantity,
-          is_active,
-          is_featured,
-          badges,
-          brand:brands(id, name, slug),
-          category:categories(id, name, slug)
-        ),
-        variant:product_variants(
-          id,
-          name,
-          color,
-          size,
-          price_adjustment,
-          stock_quantity,
-          sku,
-          is_active
-        )
-      `)
+      .select('id, product_id, variant_id, added_at')
       .eq('user_id', user.id)
       .order('added_at', { ascending: false });
 
@@ -74,12 +41,88 @@ export async function GET(_request: NextRequest) {
       return errorResponse('Failed to load wishlist', 500);
     }
 
+    if (!wishlistItems || wishlistItems.length === 0) {
+      return successResponse({
+        items: [],
+        total: 0,
+      });
+    }
+
+    // Fetch products separately to avoid RLS issues with nested selects
+    const productIds = [...new Set(wishlistItems.map((item: any) => item.product_id).filter(Boolean))];
+    const variantIds = [...new Set(wishlistItems.map((item: any) => item.variant_id).filter(Boolean))];
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        slug,
+        price,
+        original_price,
+        discount_percentage,
+        thumbnail,
+        images,
+        rating_average,
+        rating_count,
+        stock_quantity,
+        is_active,
+        is_featured,
+        badges,
+        brand_id,
+        category_id
+      `)
+      .in('id', productIds);
+
+    if (productsError) {
+      console.error('Error fetching products:', productsError);
+    }
+
+    // Fetch brands and categories
+    const brandIds = [...new Set((products || []).map((p: any) => p.brand_id).filter(Boolean))];
+    const categoryIds = [...new Set((products || []).map((p: any) => p.category_id).filter(Boolean))];
+
+    const { data: brands } = await supabase
+      .from('brands')
+      .select('id, name, slug')
+      .in('id', brandIds);
+
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('id, name, slug')
+      .in('id', categoryIds);
+
+    // Fetch variants if any
+    let variants: any[] = [];
+    if (variantIds.length > 0) {
+      const { data: variantsData } = await supabase
+        .from('product_variants')
+        .select('id, name, color, size, price_adjustment, stock_quantity, sku, is_active, image_url')
+        .in('id', variantIds);
+      variants = variantsData || [];
+    }
+
+    // Create lookup maps
+    const productsMap = new Map((products || []).map((p: any) => [p.id, p]));
+    const brandsMap = new Map((brands || []).map((b: any) => [b.id, b]));
+    const categoriesMap = new Map((categories || []).map((c: any) => [c.id, c]));
+    const variantsMap = new Map(variants.map((v: any) => [v.id, v]));
+
+    if (wishlistError) {
+      console.error('Error fetching wishlist:', wishlistError);
+      return errorResponse('Failed to load wishlist', 500);
+    }
+
+    console.log('Raw wishlist items from DB:', wishlistItems?.length || 0);
+    console.log('Products fetched:', products?.length || 0);
+    console.log('Variants fetched:', variants.length);
+
     // Transform wishlist items
     const formattedItems = (wishlistItems || []).map((item: any) => {
-      const product = Array.isArray(item.product) ? item.product[0] : item.product;
-      const variant = Array.isArray(item.variant) ? item.variant[0] : item.variant;
-      const brand = product?.brand ? (Array.isArray(product.brand) ? product.brand[0] : product.brand) : null;
-      const category = product?.category ? (Array.isArray(product.category) ? product.category[0] : product.category) : null;
+      const product = productsMap.get(item.product_id);
+      const variant = item.variant_id ? variantsMap.get(item.variant_id) : null;
+      const brand = product?.brand_id ? brandsMap.get(product.brand_id) : null;
+      const category = product?.category_id ? categoriesMap.get(product.category_id) : null;
 
       return {
         id: item.id,
@@ -108,6 +151,10 @@ export async function GET(_request: NextRequest) {
         is_available: product?.is_active && (variant ? variant.is_active : true) && (product.stock_quantity > 0 || (variant && variant.stock_quantity > 0)),
       };
     });
+
+    console.log('Formatted wishlist items:', formattedItems.length);
+    const itemsWithProducts = formattedItems.filter((item: any) => item.product !== null);
+    console.log('Items with valid products:', itemsWithProducts.length);
 
     return successResponse({
       items: formattedItems,

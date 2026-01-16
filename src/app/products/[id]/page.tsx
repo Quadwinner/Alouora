@@ -52,8 +52,10 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState<'description' | 'ingredients' | 'how-to-use'>('description');
   const [pincode, setPincode] = useState('');
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState<string | null>(null);
+  const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -73,6 +75,21 @@ export default function ProductDetailPage() {
 
         if (reviewsData.success) {
           setReviews(reviewsData.data);
+        }
+
+        // Check if product is in wishlist
+        const wishlistRes = await fetch('/api/wishlist');
+        if (wishlistRes.ok) {
+          const wishlistData = await wishlistRes.json();
+          if (wishlistData.success && wishlistData.data?.items) {
+            const wishlistItem = wishlistData.data.items.find(
+              (item: any) => item.product_id === productId
+            );
+            if (wishlistItem) {
+              setIsWishlisted(true);
+              setWishlistItemId(wishlistItem.id);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching product:', error);
@@ -114,6 +131,52 @@ export default function ProductDetailPage() {
       setTimeout(() => setCartMessage(null), 3000);
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    if (isTogglingWishlist || !product) return;
+
+    setIsTogglingWishlist(true);
+
+    try {
+      if (isWishlisted && wishlistItemId) {
+        // Remove from wishlist
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setIsWishlisted(false);
+          setWishlistItemId(null);
+        } else {
+          console.error('Error removing from wishlist:', data.error);
+        }
+      } else {
+        // Add to wishlist
+        const response = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: product.id }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setIsWishlisted(true);
+          if (data.data?.id) {
+            setWishlistItemId(data.data.id);
+          }
+        } else {
+          console.error('Error adding to wishlist:', data.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+    } finally {
+      setIsTogglingWishlist(false);
     }
   };
 
@@ -253,8 +316,9 @@ export default function ProductDetailPage() {
                 {product.name}
               </h1>
               <button
-                onClick={() => setIsWishlisted(!isWishlisted)}
-                className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                onClick={handleToggleWishlist}
+                disabled={isTogglingWishlist}
+                className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <HeartIcon filled={isWishlisted} />
               </button>

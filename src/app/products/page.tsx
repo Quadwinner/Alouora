@@ -121,6 +121,32 @@ function StarRating({ rating }: { rating: number }) {
 function ProductCard({ product }: { product: DisplayProduct }) {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkWishlist = async () => {
+      try {
+        const response = await fetch('/api/wishlist');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.items) {
+            const wishlistItem = data.data.items.find(
+              (item: any) => item.product_id === product.id
+            );
+            if (wishlistItem) {
+              setIsWishlisted(true);
+              setWishlistItemId(wishlistItem.id);
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - user might not be logged in
+      }
+    };
+    checkWishlist();
+  }, [product.id]);
 
   const handleAddToCart = async () => {
     if (isAddingToCart) return;
@@ -156,6 +182,55 @@ function ProductCard({ product }: { product: DisplayProduct }) {
       setTimeout(() => setCartMessage(null), 3000);
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isTogglingWishlist) return;
+
+    setIsTogglingWishlist(true);
+
+    try {
+      if (isWishlisted && wishlistItemId) {
+        // Remove from wishlist
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setIsWishlisted(false);
+          setWishlistItemId(null);
+        } else {
+          console.error('Error removing from wishlist:', data.error);
+        }
+      } else {
+        // Add to wishlist
+        const response = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: product.id }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setIsWishlisted(true);
+          if (data.data?.id) {
+            setWishlistItemId(data.data.id);
+          }
+        } else {
+          console.error('Error adding to wishlist:', data.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+    } finally {
+      setIsTogglingWishlist(false);
     }
   };
 
@@ -259,8 +334,19 @@ function ProductCard({ product }: { product: DisplayProduct }) {
         </button>
         {/* Wishlist & Preview Row */}
         <div className="flex border-t border-gray-100">
-          <button className="flex-none w-12 py-2.5 flex items-center justify-center border-r border-gray-100 hover:bg-gray-50 transition">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+          <button
+            onClick={handleToggleWishlist}
+            disabled={isTogglingWishlist}
+            className="flex-none w-12 py-2.5 flex items-center justify-center border-r border-gray-100 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill={isWishlisted ? "#ec4899" : "none"}
+              stroke={isWishlisted ? "#ec4899" : "#9ca3af"}
+              strokeWidth="1.5"
+            >
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
             </svg>
           </button>

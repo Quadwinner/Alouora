@@ -6,7 +6,6 @@
 
 import { z } from 'zod'
 import { quantitySchema } from './common'
-import { couponCodeSchema } from './coupon'
 
 /**
  * Add to Cart Schema
@@ -24,10 +23,5 @@ export const updateCartItemSchema = z.object({
   quantity: quantitySchema,
 })
 
-/**
- * Apply Coupon Schema
- * Uses couponCodeSchema from coupon schemas for consistency
- */
-export const applyCouponSchema = z.object({
-  coupon_code: couponCodeSchema,
-})
+// Note: applyCouponSchema is exported from './coupon' to avoid duplication
+// Import it directly from coupon.ts when needed

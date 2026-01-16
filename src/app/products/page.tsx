@@ -297,6 +297,7 @@ function ProductCardSkeleton() {
 function LipstickListingContent() {
   const searchParams = useSearchParams();
   const category = searchParams.get('category');
+  const search = searchParams.get('search') || searchParams.get('q');
   const [currentPage, setCurrentPage] = useState(1);
   const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -313,6 +314,7 @@ function LipstickListingContent() {
         page: page.toString(),
         limit: '15',
         ...(category && { category }),
+        ...(search && { search }),
       });
 
       const response = await fetch(`/api/products?${params}`);
@@ -335,11 +337,19 @@ function LipstickListingContent() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, search]);
 
   // Fetch on mount and page change
   useEffect(() => {
-    fetchProducts(currentPage);
+    setCurrentPage(1); // Reset to page 1 when search/category changes
+    fetchProducts(1);
+  }, [category, search]); // Re-fetch when search or category changes
+
+  // Fetch when page changes
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchProducts(currentPage);
+    }
   }, [currentPage, fetchProducts]);
 
   // Handle page change
@@ -348,10 +358,11 @@ function LipstickListingContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Check if it's lipstick category
+  // Check if it's lipstick category or search results
   const isLipstick = category === 'lipstick';
+  const isSearch = !!search;
 
-  if (!isLipstick) {
+  if (!isLipstick && !isSearch) {
     // Generic products page for other categories
     return (
       <main className="min-h-screen bg-white">
@@ -370,51 +381,86 @@ function LipstickListingContent() {
 
   return (
     <main className="min-h-screen bg-[#fdf2f8]">
-      {/* Hero Banner - Lipstick Paradise */}
-      <section className="relative h-[300px] md:h-[358px] overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src="/images/makeup/lipsticks/banner.png"
-            alt="Lipstick Paradise"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-pink-200/30 to-purple-200/30" />
-        </div>
-        <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
-          <h1 className="text-[80px] md:text-[150px] font-semibold text-white/25 capitalize leading-none">
-            Lipsticks
-          </h1>
-          <h2 className="text-2xl md:text-4xl font-semibold text-white capitalize mt-4">
-            The Lipstick paradise
-          </h2>
-          <p className="text-lg md:text-2xl font-semibold text-gray-400 capitalize mt-2">
-            Discover a limitless range of makeup
-          </p>
-        </div>
-      </section>
-
-      {/* Breadcrumbs */}
-      <section className="bg-[#fdf2f8] py-4">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/" className="hover:text-pink-600">Home</Link>
-            <span>/</span>
-            <Link href="/makeup" className="hover:text-pink-600">Makeup</Link>
-            <span>/</span>
-            <span className="text-gray-900">Lipstick</span>
+      {/* Hero Banner - Show different content for search vs category */}
+      {isSearch ? (
+        <section className="bg-gradient-to-r from-pink-100 to-purple-100 py-12 md:py-16">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 text-center">
+            <h1 className="text-3xl md:text-5xl font-semibold text-gray-900 mb-4">
+              Search Results
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600">
+              Results for "<span className="font-semibold text-pink-600">{search}</span>"
+            </p>
+            {pagination && (
+              <p className="text-sm text-gray-500 mt-2">
+                {pagination.total} {pagination.total === 1 ? 'product' : 'products'} found
+              </p>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <>
+          {/* Hero Banner - Lipstick Paradise */}
+          <section className="relative h-[300px] md:h-[358px] overflow-hidden">
+            <div className="absolute inset-0">
+              <Image
+                src="/images/makeup/lipsticks/banner.png"
+                alt="Lipstick Paradise"
+                fill
+                className="object-cover"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-200/30 to-purple-200/30" />
+            </div>
+            <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4">
+              <h1 className="text-[80px] md:text-[150px] font-semibold text-white/25 capitalize leading-none">
+                Lipsticks
+              </h1>
+              <h2 className="text-2xl md:text-4xl font-semibold text-white capitalize mt-4">
+                The Lipstick paradise
+              </h2>
+              <p className="text-lg md:text-2xl font-semibold text-gray-400 capitalize mt-2">
+                Discover a limitless range of makeup
+              </p>
+            </div>
+          </section>
 
-      {/* Shop By Format Section */}
-      <section className="bg-[#fdf2f8] py-8">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
-            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Format</h2>
+          {/* Breadcrumbs */}
+          <section className="bg-[#fdf2f8] py-4">
+            <div className="max-w-7xl mx-auto px-4 md:px-8">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <Link href="/" className="hover:text-pink-600">Home</Link>
+                <span>/</span>
+                <Link href="/makeup" className="hover:text-pink-600">Makeup</Link>
+                <span>/</span>
+                <span className="text-gray-900">Lipstick</span>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* Search Results Breadcrumbs */}
+      {isSearch && (
+        <section className="bg-[#fdf2f8] py-4">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <Link href="/" className="hover:text-pink-600">Home</Link>
+              <span>/</span>
+              <span className="text-gray-900">Search</span>
+            </div>
           </div>
+        </section>
+      )}
+
+      {/* Shop By Format Section - Only show for lipstick category, not search */}
+      {!isSearch && (
+        <section className="bg-[#fdf2f8] py-8">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Format</h2>
+            </div>
           <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
             {lipstickFormats.map((format) => (
               <Link
@@ -436,14 +482,16 @@ function LipstickListingContent() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* Shop By Shade Section */}
-      <section className="bg-[#fdf2f8] py-8">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
-            <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Shade</h2>
-          </div>
+      {/* Shop By Shade Section - Only show for lipstick category, not search */}
+      {!isSearch && (
+        <section className="bg-[#fdf2f8] py-8">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">Shop By Shade</h2>
+            </div>
           <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
             <div className="flex flex-wrap justify-center gap-8 md:gap-16">
               {lipstickShades.map((shade) => (
@@ -463,6 +511,7 @@ function LipstickListingContent() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Main Content - Filters + Products Grid */}
       <section className="bg-[#fdf2f8] py-8">

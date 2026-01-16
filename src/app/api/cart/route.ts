@@ -92,6 +92,104 @@ export async function GET() {
             };
         }) || [];
 
+        // Fetch applied coupon
+        const { data: appliedCouponData } = await supabase
+            .from('user_cart_coupons')
+            .select(`
+                id,
+                coupon_code,
+                discount_type,
+                discount_value,
+                max_discount_amount,
+                calculated_discount,
+                cart_subtotal,
+                coupon:coupons(
+                    id,
+                    code,
+                    name,
+                    description
+                )
+            `)
+            .eq('user_id', user.id)
+            .single();
+
+        // Recalculate coupon discount if cart total has changed
+        let couponDiscount = 0;
+        let appliedCoupon = null;
+
+        if (appliedCouponData) {
+            const coupon = Array.isArray(appliedCouponData.coupon) 
+                ? appliedCouponData.coupon[0] 
+                : appliedCouponData.coupon;
+
+            // Verify coupon is still valid
+            const { data: couponDetails } = await supabase
+                .from('coupons')
+                .select('*')
+                .eq('id', coupon?.id)
+                .eq('is_active', true)
+                .single();
+
+            if (couponDetails) {
+                const now = new Date();
+                const validFrom = new Date(couponDetails.valid_from);
+                const validUntil = new Date(couponDetails.valid_until);
+
+                // Check if coupon is still valid
+                if (now >= validFrom && now <= validUntil && subtotal >= couponDetails.min_order_amount) {
+                    // Recalculate discount based on current cart total
+                    if (appliedCouponData.discount_type === 'percentage') {
+                        couponDiscount = (subtotal * appliedCouponData.discount_value) / 100;
+                        // Apply max discount limit if set
+                        if (appliedCouponData.max_discount_amount && couponDiscount > appliedCouponData.max_discount_amount) {
+                            couponDiscount = appliedCouponData.max_discount_amount;
+                        }
+                    } else {
+                        // Fixed discount
+                        couponDiscount = appliedCouponData.discount_value;
+                        // Don't exceed cart total
+                        if (couponDiscount > subtotal) {
+                            couponDiscount = subtotal;
+                        }
+                    }
+
+                    // Update calculated discount if cart total changed
+                    if (Math.abs(subtotal - appliedCouponData.cart_subtotal) > 0.01) {
+                        await supabase
+                            .from('user_cart_coupons')
+                            .update({
+                                calculated_discount: couponDiscount,
+                                cart_subtotal: subtotal,
+                            })
+                            .eq('user_id', user.id);
+                    }
+
+                    appliedCoupon = {
+                        id: couponDetails.id,
+                        code: couponDetails.code,
+                        name: couponDetails.name,
+                        description: couponDetails.description,
+                        discount_type: appliedCouponData.discount_type,
+                        discount_value: appliedCouponData.discount_value,
+                        max_discount_amount: appliedCouponData.max_discount_amount,
+                        calculated_discount: couponDiscount,
+                    };
+                } else {
+                    // Coupon is no longer valid, remove it
+                    await supabase
+                        .from('user_cart_coupons')
+                        .delete()
+                        .eq('user_id', user.id);
+                }
+            } else {
+                // Coupon doesn't exist anymore, remove it
+                await supabase
+                    .from('user_cart_coupons')
+                    .delete()
+                    .eq('user_id', user.id);
+            }
+        }
+
         // Calculate shipping (free above ₹299)
         const shippingThreshold = 299;
         const shippingCost = subtotal >= shippingThreshold ? 0 : 49;
@@ -100,8 +198,8 @@ export async function GET() {
         // Calculate reward points (1 point per ₹100)
         const rewardPoints = Math.floor(subtotal / 100);
 
-        // Grand total
-        const grandTotal = subtotal + shippingCost;
+        // Grand total (subtotal - coupon discount + shipping)
+        const grandTotal = Math.max(0, subtotal - couponDiscount + shippingCost);
 
         return NextResponse.json({
             success: true,
@@ -111,13 +209,14 @@ export async function GET() {
                     subtotal,
                     shippingCost,
                     totalSavings,
+                    couponDiscount,
                     grandTotal,
                     totalItems,
                     rewardPoints,
                     amountForFreeShipping,
                     freeShippingThreshold: shippingThreshold,
                 },
-                appliedCoupon: null, // TODO: Add coupon support
+                appliedCoupon,
             }
         });
     } catch (error) {
@@ -147,6 +246,12 @@ export async function DELETE() {
         // Delete all cart items for user
         const { error: deleteError } = await supabase
             .from('cart_items')
+            .delete()
+            .eq('user_id', user.id);
+
+        // Also remove applied coupon when cart is cleared
+        await supabase
+            .from('user_cart_coupons')
             .delete()
             .eq('user_id', user.id);
 

@@ -1,0 +1,235 @@
+-- =============================================================================
+-- DIRECT INSERT: TEST COUPONS
+-- =============================================================================
+-- Run this in Supabase SQL Editor to insert test coupons
+-- =============================================================================
+
+-- Insert test coupons (bypassing RLS by using service role)
+INSERT INTO public.coupons (
+  code,
+  name,
+  description,
+  discount_type,
+  discount_value,
+  max_discount_amount,
+  min_order_amount,
+  max_uses,
+  max_uses_per_user,
+  valid_from,
+  valid_until,
+  applicable_to,
+  is_active
+) VALUES
+-- Percentage discount coupons
+(
+  'SAVE10',
+  '10% Off on All Orders',
+  'Get 10% discount on your entire order',
+  'percentage',
+  10.00,
+  500.00,
+  1000.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '30 days',
+  'all',
+  true
+),
+(
+  'SKINOCT10OFF',
+  'Buy 2 items, Get extra 10% off',
+  'On all Skincare orders',
+  'percentage',
+  10.00,
+  NULL,
+  500.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '15 days',
+  'category',
+  true
+),
+(
+  'SKIN10XTRAA',
+  'Extra 10% off, upto ₹200',
+  'On all Skincare orders',
+  'percentage',
+  10.00,
+  200.00,
+  1000.00,
+  1000,
+  2,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '20 days',
+  'category',
+  true
+),
+(
+  'BEAUTY5',
+  'Extra 5% off',
+  'On orders above ₹1500',
+  'percentage',
+  5.00,
+  NULL,
+  1500.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '60 days',
+  'all',
+  true
+),
+(
+  'COUPON25',
+  '25% Off Sale',
+  'Save big with 25% off on your purchase',
+  'percentage',
+  25.00,
+  1000.00,
+  2000.00,
+  500,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '7 days',
+  'all',
+  true
+),
+-- Fixed discount coupons
+(
+  'FLAT100',
+  'Flat ₹100 Off',
+  'Get ₹100 off on orders above ₹500',
+  'fixed',
+  100.00,
+  NULL,
+  500.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '45 days',
+  'all',
+  true
+),
+(
+  'FLAT500',
+  'Flat ₹500 Off',
+  'Get ₹500 off on orders above ₹2000',
+  'fixed',
+  500.00,
+  NULL,
+  2000.00,
+  200,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '30 days',
+  'all',
+  true
+),
+(
+  'NEWUSER50',
+  'New User Special - ₹50 Off',
+  'Welcome offer for new customers',
+  'fixed',
+  50.00,
+  NULL,
+  300.00,
+  1000,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '90 days',
+  'all',
+  true
+),
+-- Brand-specific coupon
+(
+  'MAC20',
+  '20% Off MAC Products',
+  'Special discount on MAC brand products',
+  'percentage',
+  20.00,
+  800.00,
+  1500.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '25 days',
+  'brand',
+  true
+),
+-- Expired coupon (for testing)
+(
+  'EXPIRED10',
+  'Expired 10% Off',
+  'This coupon has expired',
+  'percentage',
+  10.00,
+  NULL,
+  500.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '30 days',
+  NOW() - INTERVAL '1 day',
+  'all',
+  true
+),
+-- Future coupon (not yet valid)
+(
+  'FUTURE15',
+  'Future 15% Off',
+  'This coupon will be valid in the future',
+  'percentage',
+  15.00,
+  NULL,
+  1000.00,
+  NULL,
+  1,
+  NOW() + INTERVAL '5 days',
+  NOW() + INTERVAL '35 days',
+  'all',
+  true
+),
+-- Coupon for ₹100 purchase
+(
+  'WELCOME100',
+  '₹50 Off on ₹100+ Purchase',
+  'Get ₹50 off on orders above ₹100',
+  'fixed',
+  50.00,
+  NULL,
+  100.00,
+  NULL,
+  1,
+  NOW() - INTERVAL '1 day',
+  NOW() + INTERVAL '90 days',
+  'all',
+  true
+)
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  discount_type = EXCLUDED.discount_type,
+  discount_value = EXCLUDED.discount_value,
+  max_discount_amount = EXCLUDED.max_discount_amount,
+  min_order_amount = EXCLUDED.min_order_amount,
+  max_uses = EXCLUDED.max_uses,
+  max_uses_per_user = EXCLUDED.max_uses_per_user,
+  valid_from = EXCLUDED.valid_from,
+  valid_until = EXCLUDED.valid_until,
+  applicable_to = EXCLUDED.applicable_to,
+  is_active = EXCLUDED.is_active,
+  updated_at = NOW();
+
+-- Verify insertion
+SELECT 
+  code,
+  name,
+  discount_type,
+  discount_value,
+  min_order_amount,
+  is_active,
+  valid_from,
+  valid_until
+FROM public.coupons
+ORDER BY code;

@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, Suspense } from "react";
 import { MagnifyingGlassIcon, ShoppingBagIcon, UserIcon, HeartIcon } from "@heroicons/react/24/outline";
 
-export default function Header() {
+function SearchBar() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
@@ -18,6 +18,39 @@ export default function Header() {
             router.push(`/products?search=${encodeURIComponent(query)}`);
         }
     };
+
+    return (
+        <>
+            {/* Search Bar - hidden on very small screens */}
+            <form onSubmit={handleSearch} className="hidden sm:flex flex-1 max-w-xl relative">
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search for products, brands and more"
+                    className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#b8860b] placeholder:text-gray-400"
+                />
+                <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </form>
+
+            {/* Mobile Search - visible only on small screens */}
+            <div className="sm:hidden px-4 pb-3">
+                <form onSubmit={handleSearch} className="relative">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search..."
+                        className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm"
+                    />
+                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </form>
+            </div>
+        </>
+    );
+}
+
+export default function Header() {
 
     return (
         <header className="sticky top-0 z-50 bg-white shadow-sm font-sans">
@@ -41,17 +74,20 @@ export default function Header() {
                     <h1 className="text-2xl md:text-3xl font-serif text-[#b8860b] tracking-widest">ALOUORA</h1>
                 </Link>
 
-                {/* Search Bar - hidden on very small screens */}
-                <form onSubmit={handleSearch} className="hidden sm:flex flex-1 max-w-xl relative">
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for products, brands and more"
-                        className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#b8860b] placeholder:text-gray-400"
-                    />
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </form>
+                {/* Search Bar - wrapped in Suspense */}
+                <Suspense fallback={
+                    <div className="hidden sm:flex flex-1 max-w-xl relative">
+                        <input
+                            type="text"
+                            placeholder="Search for products, brands and more"
+                            className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm text-gray-700"
+                            disabled
+                        />
+                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                }>
+                    <SearchBar />
+                </Suspense>
 
                 {/* Actions */}
                 <div className="flex items-center gap-4 md:gap-6">
@@ -93,20 +129,6 @@ export default function Header() {
                     </Link>
                 ))}
             </nav>
-
-            {/* Mobile Search - visible only on small screens */}
-            <div className="sm:hidden px-4 pb-3">
-                <form onSubmit={handleSearch} className="relative">
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search..."
-                        className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm"
-                    />
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </form>
-            </div>
         </header>
     );
 }

@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { quantitySchema } from './common'
+import { couponCodeSchema } from './coupon'
 
 /**
  * Add to Cart Schema
@@ -25,7 +26,8 @@ export const updateCartItemSchema = z.object({
 
 /**
  * Apply Coupon Schema
+ * Uses couponCodeSchema from coupon schemas for consistency
  */
 export const applyCouponSchema = z.object({
-  coupon_code: z.string().min(3).max(50).toUpperCase(),
+  coupon_code: couponCodeSchema,
 })

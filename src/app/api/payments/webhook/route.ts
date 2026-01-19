@@ -40,13 +40,54 @@ export async function POST(request: NextRequest) {
         // Payment was captured successfully
         if (event.payload?.payment?.entity) {
           const payment = event.payload.payment.entity;
-          await supabase
+          
+          // Find order by Razorpay order ID
+          const { data: order } = await supabase
             .from('orders')
-            .update({
-              payment_status: 'captured',
-              razorpay_payment_id: payment.id,
-            })
-            .eq('razorpay_order_id', payment.order_id);
+            .select('id, user_id, total_amount')
+            .ilike('admin_notes', `%${payment.order_id}%`)
+            .single();
+
+          if (order) {
+            // Update order
+            await supabase
+              .from('orders')
+              .update({
+                payment_status: 'paid',
+                status: 'confirmed',
+              })
+              .eq('id', order.id);
+
+            // Create or update payment record
+            const paymentData: any = {
+              order_id: order.id,
+              user_id: order.user_id,
+              provider: 'razorpay',
+              provider_payment_id: payment.id,
+              provider_order_id: payment.order_id,
+              amount: payment.amount ? payment.amount / 100 : order.total_amount,
+              currency: payment.currency || 'INR',
+              status: 'captured',
+              method: payment.method || 'card',
+              raw_payload: JSON.stringify(payment),
+            };
+
+            // Check if payment already exists
+            const { data: existingPayment } = await supabase
+              .from('payments')
+              .select('id')
+              .eq('provider_payment_id', payment.id)
+              .single();
+
+            if (existingPayment) {
+              await supabase
+                .from('payments')
+                .update(paymentData)
+                .eq('id', existingPayment.id);
+            } else {
+              await supabase.from('payments').insert(paymentData);
+            }
+          }
         }
         break;
 
@@ -54,27 +95,77 @@ export async function POST(request: NextRequest) {
         // Payment failed
         if (event.payload?.payment?.entity) {
           const payment = event.payload.payment.entity;
-          await supabase
+          
+          // Find order by Razorpay order ID
+          const { data: order } = await supabase
             .from('orders')
-            .update({
-              payment_status: 'failed',
-              razorpay_payment_id: payment.id,
-            })
-            .eq('razorpay_order_id', payment.order_id);
+            .select('id, user_id, total_amount')
+            .ilike('admin_notes', `%${payment.order_id}%`)
+            .single();
+
+          if (order) {
+            // Update order
+            await supabase
+              .from('orders')
+              .update({
+                payment_status: 'failed',
+              })
+              .eq('id', order.id);
+
+            // Create or update payment record
+            const paymentData: any = {
+              order_id: order.id,
+              user_id: order.user_id,
+              provider: 'razorpay',
+              provider_payment_id: payment.id,
+              provider_order_id: payment.order_id,
+              amount: payment.amount ? payment.amount / 100 : order.total_amount,
+              currency: payment.currency || 'INR',
+              status: 'failed',
+              method: payment.method || 'card',
+              error_code: payment.error_code || null,
+              error_description: payment.error_description || null,
+              raw_payload: JSON.stringify(payment),
+            };
+
+            const { data: existingPayment } = await supabase
+              .from('payments')
+              .select('id')
+              .eq('provider_payment_id', payment.id)
+              .single();
+
+            if (existingPayment) {
+              await supabase
+                .from('payments')
+                .update(paymentData)
+                .eq('id', existingPayment.id);
+            } else {
+              await supabase.from('payments').insert(paymentData);
+            }
+          }
         }
         break;
 
       case 'order.paid':
         // Order was paid
         if (event.payload?.order?.entity) {
-          const order = event.payload.order.entity;
-          await supabase
+          const razorpayOrder = event.payload.order.entity;
+          
+          const { data: order } = await supabase
             .from('orders')
-            .update({
-              status: 'confirmed',
-              payment_status: 'paid',
-            })
-            .eq('razorpay_order_id', order.id);
+            .select('id, user_id, total_amount')
+            .ilike('admin_notes', `%${razorpayOrder.id}%`)
+            .single();
+
+          if (order) {
+            await supabase
+              .from('orders')
+              .update({
+                status: 'confirmed',
+                payment_status: 'paid',
+              })
+              .eq('id', order.id);
+          }
         }
         break;
 

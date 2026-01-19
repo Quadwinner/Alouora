@@ -6,6 +6,7 @@
 
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import { createClient } from '@/lib/supabase/server';
 import {
   successResponse,
@@ -39,10 +40,13 @@ export async function POST(request: NextRequest) {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } =
       validationResult.data;
 
+    // Get Razorpay credentials (reused throughout the function)
+    const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+    const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
+
     // Verify signature
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
     const generatedSignature = crypto
-      .createHmac('sha256', keySecret)
+      .createHmac('sha256', razorpayKeySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Find order by Razorpay order ID (stored in admin_notes) or by database order ID
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, user_id, status, admin_notes')
+      .select('id, user_id, status, admin_notes, total_amount')
       .or(`id.eq.${order_id},admin_notes.ilike.%${razorpay_order_id}%`)
       .eq('user_id', user.id)
       .eq('status', 'pending')
@@ -74,6 +78,20 @@ export async function POST(request: NextRequest) {
         return errorResponse('Order not found', 404);
       }
 
+      // Fetch payment details from Razorpay
+      let paymentDetails: any = null;
+      if (razorpayKeyId && razorpayKeySecret) {
+        try {
+          const razorpayClient = new Razorpay({
+            key_id: razorpayKeyId,
+            key_secret: razorpayKeySecret,
+          });
+          paymentDetails = await razorpayClient.payments.fetch(razorpay_payment_id);
+        } catch (razorpayError) {
+          console.error('Error fetching payment details from Razorpay:', razorpayError);
+        }
+      }
+
       // Update order with payment details
       const { error: updateError } = await supabase
         .from('orders')
@@ -88,6 +106,28 @@ export async function POST(request: NextRequest) {
         console.error('Error updating order:', updateError);
         return errorResponse('Failed to update order', 500);
       }
+
+      // Create payment record in payments table
+      const { data: orderForPayment } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('id', orderByRazorpayId.id)
+        .single();
+
+      const paymentData: any = {
+        order_id: orderByRazorpayId.id,
+        user_id: user.id,
+        provider: 'razorpay',
+        provider_payment_id: razorpay_payment_id,
+        provider_order_id: razorpay_order_id,
+        amount: paymentDetails?.amount ? paymentDetails.amount / 100 : orderForPayment?.total_amount || 0,
+        currency: paymentDetails?.currency || 'INR',
+        status: 'captured',
+        method: paymentDetails?.method || 'card',
+        raw_payload: paymentDetails ? JSON.stringify(paymentDetails) : null,
+      };
+
+      await supabase.from('payments').insert(paymentData);
 
       // Clear cart and coupon
       await supabase.from('cart_items').delete().eq('user_id', user.id);
@@ -107,6 +147,21 @@ export async function POST(request: NextRequest) {
       return errorResponse('Order already processed', 400);
     }
 
+    // Fetch payment details from Razorpay
+    let paymentDetails: any = null;
+    if (razorpayKeyId && razorpayKeySecret) {
+      try {
+        const razorpayClient = new Razorpay({
+          key_id: razorpayKeyId,
+          key_secret: razorpayKeySecret,
+        });
+        paymentDetails = await razorpayClient.payments.fetch(razorpay_payment_id);
+      } catch (razorpayError) {
+        console.error('Error fetching payment details from Razorpay:', razorpayError);
+        // Continue without payment details
+      }
+    }
+
     // Update order with payment details
     const { error: updateError } = await supabase
       .from('orders')
@@ -120,6 +175,29 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('Error updating order:', updateError);
       return errorResponse('Failed to update order', 500);
+    }
+
+    // Create payment record in payments table
+    const paymentData: any = {
+      order_id: order.id,
+      user_id: user.id,
+      provider: 'razorpay',
+      provider_payment_id: razorpay_payment_id,
+      provider_order_id: razorpay_order_id,
+      amount: paymentDetails?.amount ? paymentDetails.amount / 100 : order.total_amount, // Razorpay amount is in paise
+      currency: paymentDetails?.currency || 'INR',
+      status: 'captured',
+      method: paymentDetails?.method || 'card',
+      raw_payload: paymentDetails ? JSON.stringify(paymentDetails) : null,
+    };
+
+    const { error: paymentInsertError } = await supabase
+      .from('payments')
+      .insert(paymentData);
+
+    if (paymentInsertError) {
+      console.error('Error creating payment record:', paymentInsertError);
+      // Don't fail the request if payment record creation fails
     }
 
     // Clear cart after successful payment

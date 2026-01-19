@@ -15,11 +15,6 @@ import {
 } from '@/lib/api/response';
 import { createPaymentOrderSchema } from '@/lib/api/schemas/payment';
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
-
 /**
  * POST /api/payments/create-order - Create Razorpay order
  */
@@ -138,8 +133,21 @@ export async function POST(request: NextRequest) {
     const couponDiscount = appliedCouponData?.calculated_discount || 0;
     const finalTotal = subtotal - couponDiscount;
 
-    // Create Razorpay order
-    const razorpayOrder = await razorpay.orders.create(orderOptions);
+    // Create Razorpay client and order
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
+      console.error('Razorpay keys not configured on server');
+      return errorResponse('Payment gateway is not configured', 500);
+    }
+
+    const razorpayClient = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret,
+    });
+
+    const razorpayOrder = await razorpayClient.orders.create(orderOptions);
 
     // Store order in database
     const orderData: any = {

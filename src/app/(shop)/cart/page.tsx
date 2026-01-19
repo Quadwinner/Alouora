@@ -477,9 +477,12 @@ export default function CartPage() {
                 </div>
               )}
 
-              <button className="w-full mt-6 py-3 bg-[#c57baa] text-white text-lg font-normal rounded-lg hover:bg-[#b86a9a] transition">
+              <Link 
+                href="/checkout/payment" 
+                className="block w-full mt-6 py-3 bg-[#c57baa] text-white text-lg font-normal rounded-lg hover:bg-[#b86a9a] transition text-center"
+              >
                 Checkout
-              </button>
+              </Link>
 
               <Link 
                 href="/products?category=lipstick" 

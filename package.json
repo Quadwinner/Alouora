@@ -23,6 +23,7 @@
     "libphonenumber-js": "^1.12.33",
     "next": "16.1.1",
     "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.70.0",
@@ -30,7 +31,7 @@
     "react-otp-input": "^3.1.1",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
-    "zod": "^4.3.5",
+    "zod": "^3.23.8",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

@@ -58,15 +58,26 @@ export function errorResponse(
  * Formats Zod validation errors into user-friendly messages
  */
 export function validationErrorResponse(
-  zodError: ZodError
+  zodError: ZodError | Error
 ): NextResponse<ApiResponse> {
-  const firstError = zodError.issues[0]
-  const errorMessage = firstError.message
-
+  if (zodError instanceof ZodError) {
+    const firstError = zodError.issues?.[0]
+    const errorMessage = firstError?.message || 'Validation failed'
+    
+    return NextResponse.json(
+      {
+        success: false,
+        error: errorMessage,
+      },
+      { status: 400 }
+    )
+  }
+  
+  // Fallback for non-Zod errors
   return NextResponse.json(
     {
       success: false,
-      error: errorMessage,
+      error: zodError.message || 'Validation failed',
     },
     { status: 400 }
   )

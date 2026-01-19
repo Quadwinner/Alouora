@@ -74,8 +74,16 @@ export async function POST(request: NextRequest) {
     };
 
     // Validate Razorpay keys
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      console.error('Razorpay keys not configured');
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    if (!keyId || !keySecret) {
+      console.error('Razorpay keys not configured:', {
+        hasKeyId: !!keyId,
+        hasKeySecret: !!keySecret,
+        keyIdLength: keyId?.length || 0,
+        keySecretLength: keySecret?.length || 0,
+      });
       return errorResponse('Payment gateway not configured', 500);
     }
 
@@ -133,14 +141,7 @@ export async function POST(request: NextRequest) {
     const couponDiscount = appliedCouponData?.calculated_discount || 0;
     const finalTotal = subtotal - couponDiscount;
 
-    // Create Razorpay client and order
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret) {
-      console.error('Razorpay keys not configured on server');
-      return errorResponse('Payment gateway is not configured', 500);
-    }
+    // Create Razorpay client and order (keys already validated above)
 
     const razorpayClient = new Razorpay({
       key_id: keyId,

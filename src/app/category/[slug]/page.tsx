@@ -150,7 +150,7 @@ function ProductCard({ product }: { product: DisplayProduct }) {
         <div className="relative h-[200px] w-full">
           <Image
             src={product.img}
-            alt={product.name}
+            alt={product.name || 'Product image'}
             fill
             className="object-contain p-4 group-hover:scale-105 transition-transform duration-200"
           />

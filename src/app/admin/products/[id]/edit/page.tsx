@@ -8,6 +8,7 @@ import Link from 'next/link';
 interface Category {
     id: string;
     name: string;
+    parent_id: string | null;
 }
 
 interface Brand {
@@ -344,9 +345,20 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                                 className="w-full px-4 py-2.5 bg-[#0f1117] border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500/50 appearance-none cursor-pointer transition-colors"
                             >
                                 <option value="">Select category</option>
-                                {categories.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
+                                {categories.filter(c => !c.parent_id).map((parent) => {
+                                    const children = categories.filter(c => c.parent_id === parent.id);
+                                    if (children.length > 0) {
+                                        return (
+                                            <optgroup key={parent.id} label={parent.name}>
+                                                <option value={parent.id}>{parent.name} (All)</option>
+                                                {children.map((child) => (
+                                                    <option key={child.id} value={child.id}>{child.name}</option>
+                                                ))}
+                                            </optgroup>
+                                        );
+                                    }
+                                    return <option key={parent.id} value={parent.id}>{parent.name}</option>;
+                                })}
                             </select>
                         </div>
                         <div>

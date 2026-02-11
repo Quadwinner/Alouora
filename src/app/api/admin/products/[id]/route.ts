@@ -25,7 +25,7 @@ interface RouteParams {
 /**
  * GET /api/admin/products/:id
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
     try {
         const supabase = await createClient()
         const admin = await requireAdmin(supabase)
@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 /**
  * DELETE /api/admin/products/:id - Soft delete (set is_active = false)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     try {
         const supabase = await createClient()
         const admin = await requireAdmin(supabase)
